@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flow DSL - Declarative Business Logic</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Flow DSL</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#concept">Concept</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#benefits">Benefits</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#examples">Examples</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="https://github.com/arash-ariani/flow-dsl">GitHub</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <header class="bg-primary text-white py-5">
+        <div class="container">
+            <h1>Flow DSL: Declarative Business Logic</h1>
+            <p class="lead">Focus on What Your Code Does, Not How It Does It</p>
+        </div>
+    </header>
+
+    <main class="container my-5">
+        <section id="concept" class="mb-5">
+            <h2>The "What" Over "How" Concept</h2>
+            <p>In traditional imperative programming, we often focus on <em>how</em> to perform tasks - the specific steps, the order of operations, and the implementation details. This approach can lead to:</p>
+            <ul>
+                <li>Complex, hard-to-maintain code</li>
+                <li>Tight coupling between components</li>
+                <li>Difficulty in understanding business logic</li>
+                <li>Challenges in testing and modification</li>
+            </ul>
+            
+            <p>Declarative programming, on the other hand, emphasizes <em>what</em> we want to achieve rather than how to achieve it. This paradigm shift brings several advantages:</p>
+            <ul>
+                <li>Clearer expression of business intent</li>
+                <li>Better separation of concerns</li>
+                <li>Improved maintainability</li>
+                <li>Enhanced testability</li>
+                <li>Easier parallel processing</li>
+            </ul>
+        </section>
+
+        <section id="benefits" class="mb-5">
+            <h2>Why Flow DSL?</h2>
+            <p>Flow DSL is a practical implementation of the "What" over "How" principle. It provides a declarative way to express business workflows while handling the complex "how" details under the hood.</p>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <h3>Traditional Approach</h3>
+                    <pre><code class="language-java">
+try {
+    // Validate order
+    if (!validateOrder(order)) {
+        throw new ValidationException();
+    }
+    
+    // Process payment
+    PaymentResult payment = null;
+    for (int i = 0; i < 3; i++) {
+        try {
+            payment = processPayment(order);
+            break;
+        } catch (Exception e) {
+            if (i == 2) throw e;
+            Thread.sleep(100 * (i + 1));
+        }
+    }
+    
+    // Check inventory
+    List<InventoryResult> inventory = new ArrayList<>();
+    ExecutorService executor = Executors.newFixedThreadPool(order.items.size());
+    try {
+        List<Future<InventoryResult>> futures = new ArrayList<>();
+        for (OrderItem item : order.items) {
+            futures.add(executor.submit(() -> checkInventory(item)));
+        }
+        for (Future<InventoryResult> future : futures) {
+            inventory.add(future.get(5, TimeUnit.SECONDS));
+        }
+    } finally {
+        executor.shutdown();
+    }
+} catch (Exception e) {
+    // Compensation logic
+    if (payment != null) {
+        rollbackPayment(payment);
+    }
+    for (InventoryResult result : inventory) {
+        rollbackInventory(result);
+    }
+    throw e;
+}
+                    </code></pre>
+                </div>
+                <div class="col-md-6">
+                    <h3>Flow DSL Approach</h3>
+                    <pre><code class="language-java">
+Flow.of(() -> order)
+    .map(OrderService::validateOrder)
+    .flatMap(validOrder -> 
+        Flow.of(() -> processPayment(validOrder))
+            .withRetry(3)
+            .withBackoff(Duration.ofMillis(100))
+            .withTimeout(Duration.ofSeconds(5))
+            .withCompensation(PaymentService::rollback))
+    .flatMap(payment -> 
+        Flow.of(() -> order.items)
+            .parallelMap(InventoryService::checkInventory)
+            .withParallelism(order.items.size())
+            .withCompensation(InventoryService::rollback))
+    .execute();
+                    </code></pre>
+                </div>
+            </div>
+        </section>
+
+        <section id="key-features" class="mb-5">
+            <h2>Key Features</h2>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Declarative Syntax</h5>
+                            <p class="card-text">Express business logic in a clear, readable manner that closely matches your domain requirements.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Built-in Resilience</h5>
+                            <p class="card-text">Automatic retry, circuit breaking, timeout handling, and compensation actions.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Parallel Processing</h5>
+                            <p class="card-text">Effortless parallel execution with controlled concurrency and proper resource management.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="examples" class="mb-5">
+            <h2>Examples</h2>
+            
+            <h3>Basic Flow</h3>
+            <pre><code class="language-java">
+Flow.of(() -> "Hello")
+    .map(str -> str + " ")
+    .map(str -> str + "World")
+    .map(String::toUpperCase)
+    .execute();  // Returns "HELLO WORLD"
+            </code></pre>
+
+            <h3>Error Handling</h3>
+            <pre><code class="language-java">
+Flow.of(() -> "data")
+    .onError(error -> log.error("Flow failed", error))
+    .onComplete(result -> log.info("Flow completed with: {}", result))
+    .withRetry(3)
+    .withBackoff(Duration.ofSeconds(1))
+    .execute();
+            </code></pre>
+
+            <h3>Parallel Processing</h3>
+            <pre><code class="language-java">
+Flow.parallel(
+    () -> "Task 1",
+    () -> "Task 2",
+    () -> "Task 3"
+)
+.withParallelism(3)
+.execute();
+            </code></pre>
+
+            <h3>Spring Boot Integration</h3>
+            <p>Flow DSL integrates seamlessly with Spring Boot applications. Here's how to use it in your services:</p>
+
+            <h4>Service Layer Integration</h4>
+            <pre><code class="language-java">
+@Service
+@Slf4j
+public class OrderService {
+    private final PaymentService paymentService;
+    private final InventoryService inventoryService;
+    private final NotificationService notificationService;
+
+    public OrderResult processOrder(Order order) {
+        return Flow.of(() -> order)
+            .map(this::validateOrder)
+            .flatMap(validOrder -> 
+                Flow.of(() -> paymentService.processPayment(validOrder))
+                    .withRetry(3)
+                    .withTimeout(Duration.ofSeconds(5))
+                    .withCompensation(paymentService::rollbackPayment)
+                    .onError(e -> log.error("Payment failed", e))
+                    .onComplete(payment -> log.info("Payment processed: {}", payment)))
+            .flatMap(payment -> 
+                Flow.of(() -> inventoryService.reserveItems(order.getItems()))
+                    .withRetry(2)
+                    .withCompensation(inventoryService::releaseItems))
+            .thenCompose(inventory -> 
+                Flow.of(() -> notificationService.notifyCustomer(order))
+                    .withRetry(3)
+                    .async())
+            .execute();
+    }
+
+    @Transactional
+    public OrderResult processOrderWithTransaction(Order order) {
+        return Flow.of(() -> order)
+            .withContextData("transactionId", UUID.randomUUID().toString())
+            .onEvent(event -> {
+                if (event.getType() == FlowEvent.EventType.FLOW_ERROR) {
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                }
+            })
+            .map(this::validateOrder)
+            .flatMap(this::processPayment)
+            .flatMap(this::updateInventory)
+            .execute();
+    }
+
+    private Flow<PaymentResult> processPayment(Order order) {
+        return Flow.of(() -> paymentService.processPayment(order))
+            .withRetry(3)
+            .withTimeout(Duration.ofSeconds(5))
+            .withCompensation(paymentService::rollbackPayment);
+    }
+
+    private Flow<InventoryResult> updateInventory(PaymentResult payment) {
+        return Flow.of(() -> inventoryService.updateInventory(payment.getOrder()))
+            .withRetry(2)
+            .withCompensation(inventoryService::rollback);
+    }
+}
+            </code></pre>
+
+            <h3>Advanced Examples</h3>
+
+            <h4>Context Sharing</h4>
+            <pre><code class="language-java">
+Flow.of(() -> new FlowContext())
+    .map(ctx -> {
+        ctx.put("userId", "12345");
+        return ctx;
+    })
+    .flatMap(ctx ->
+        Flow.of(() -> userService.getUser(ctx.get("userId")))
+            .withContext(ctx)
+    )
+    .execute();
+            </code></pre>
+
+            <h4>Event Monitoring</h4>
+            <pre><code class="language-java">
+Flow.of(() -> "process")
+    .withEventListener(event -> {
+        if (event.getType() == FlowEventType.STEP_START) {
+            log.info("Starting step: {}", event.getStepName());
+        }
+    })
+    .map(str -> str + " step 1")
+    .map(str -> str + " step 2")
+    .execute();
+            </code></pre>
+
+            <h4>Conditional Flows</h4>
+            <pre><code class="language-java">
+Flow.of(() -> order)
+    .filter(Order::isValid)
+    .branch(
+        order -> order.getTotal() > 1000,
+        premium -> premium
+            .map(OrderService::applyPremiumDiscount)
+            .map(NotificationService::sendPremiumNotification),
+        regular -> regular
+            .map(OrderService::applyRegularDiscount)
+    )
+    .execute();
+            </code></pre>
+
+            <h4>Circuit Breaker Pattern</h4>
+            <pre><code class="language-java">
+Flow.of(() -> externalService.call())
+    .withCircuitBreaker(CircuitBreakerConfig.builder()
+        .failureThreshold(5)
+        .resetTimeout(Duration.ofMinutes(1))
+        .build())
+    .withFallback(() -> "fallback-response")
+    .execute();
+            </code></pre>
+
+            <h4>Async Composition</h4>
+            <pre><code class="language-java">
+CompletableFuture<OrderResult> result = Flow.of(() -> order)
+    .thenCompose(order -> 
+        Flow.parallel(
+            () -> paymentService.processAsync(order),
+            () -> inventoryService.checkAsync(order),
+            () -> fraudService.validateAsync(order)
+        )
+        .withParallelism(3)
+        .async()
+    )
+    .thenApply(results -> OrderResult.combine(results))
+    .executeAsync();
+            </code></pre>
+        </section>
+    </main>
+
+    <footer class="bg-dark text-white py-4">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Flow DSL</h5>
+                    <p>A lightweight, fluent Domain-Specific Language for building type-safe, composable business flows in Java.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a href="https://github.com/arash-ariani/flow-dsl" class="text-white">GitHub</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+</body>
+</html> 
