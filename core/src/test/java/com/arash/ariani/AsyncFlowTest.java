@@ -119,7 +119,7 @@ class AsyncFlowTest extends BaseFlowTest {
         ExecutionException exception = assertThrows(ExecutionException.class, () -> 
             future.get(1, TimeUnit.SECONDS)
         );
-        assertTrue(exception.getCause() instanceof FlowTimeoutException);
+        assertInstanceOf(FlowTimeoutException.class, exception.getCause());
         assertTrue(exception.getCause().getMessage().contains("timed out"));
     }
 

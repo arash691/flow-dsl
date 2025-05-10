@@ -43,8 +43,8 @@ class FlowEventTest extends BaseFlowTest {
         );
 
         assertEquals(1, errorEvents.size());
-        assertEquals(FlowEvent.EventType.FLOW_ERROR, errorEvents.get(0).getType());
-        assertTrue(errorEvents.get(0).getPayload() instanceof RuntimeException);
+        assertEquals(FlowEvent.EventType.FLOW_ERROR, errorEvents.getFirst().getType());
+        assertInstanceOf(RuntimeException.class, errorEvents.getFirst().getPayload());
     }
 
     @Test
@@ -132,8 +132,8 @@ class FlowEventTest extends BaseFlowTest {
         List<FlowEvent> events = new ArrayList<>();
         
         Flow.of(() -> "test")
-            .map(s -> s.toUpperCase())
-            .filter(s -> s.length() > 0)
+            .map(String::toUpperCase)
+            .filter(s -> !s.isEmpty())
             .onEvent(events::add)
             .execute();
 
@@ -145,7 +145,7 @@ class FlowEventTest extends BaseFlowTest {
         List<String> stepOrder = events.stream()
             .filter(e -> e.getType() == FlowEvent.EventType.STEP_STARTED)
             .map(e -> (String) e.getPayload())
-            .collect(Collectors.toList());
+            .toList();
             
         assertEquals("map", stepOrder.get(0));
         assertEquals("filter", stepOrder.get(1));
