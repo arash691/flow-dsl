@@ -13,7 +13,7 @@ A lightweight, fluent Domain-Specific Language (DSL) for building type-safe, com
 - Error handling and compensation
 - Event emission and monitoring
 - Flow composition
-- Reactive support with CompletableFuture
+- Asynchronous support with CompletableFuture
 - Metrics collection
 - Debugging support
 
