@@ -19,8 +19,11 @@ jobs:
           cache: maven
           
       - name: Build with Maven
-        run: mvn -B package --file pom.xml
-
+        run: |
+          mvn -B clean package source:jar javadoc:jar
+          echo "Built files in target:"
+          ls -la core/target/
+        
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
@@ -60,12 +63,32 @@ jobs:
             
             For full documentation, please refer to [README.md](README.md).
             
-      - name: Upload Release Asset
+      - name: Upload Main JAR
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./core/target/flow-dsl-core-1.0.0-alpha.jar
-          asset_name: flow-dsl-core-1.0.0-alpha.jar
+          asset_path: ./core/target/flow-dsl-core-${{ env.VERSION }}.jar
+          asset_name: flow-dsl-core-${{ env.VERSION }}.jar
+          asset_content_type: application/java-archive
+
+      - name: Upload Sources JAR
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./core/target/flow-dsl-core-${{ env.VERSION }}-sources.jar
+          asset_name: flow-dsl-core-${{ env.VERSION }}-sources.jar
+          asset_content_type: application/java-archive
+
+      - name: Upload JavaDoc JAR
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./core/target/flow-dsl-core-${{ env.VERSION }}-javadoc.jar
+          asset_name: flow-dsl-core-${{ env.VERSION }}-javadoc.jar
           asset_content_type: application/java-archive 
