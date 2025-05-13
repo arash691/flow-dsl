@@ -6,7 +6,7 @@
 
     <groupId>com.arash.ariani</groupId>
     <artifactId>flow-dsl-parent</artifactId>
-    <version>0.1.0-alpha</version>
+    <version>1.0.0-alpha</version>
     <packaging>pom</packaging>
 
     <name>Flow DSL Parent</name>

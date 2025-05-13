@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.arash.ariani</groupId>
         <artifactId>flow-dsl-parent</artifactId>
-        <version>0.1.0-alpha</version>
+        <version>1.0.0-alpha</version>
     </parent>
 
     <artifactId>flow-dsl-core</artifactId>

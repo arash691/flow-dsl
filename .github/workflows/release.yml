@@ -42,6 +42,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./core/target/flow-dsl-core-0.1.0-alpha.jar
-          asset_name: flow-dsl-core-0.1.0-alpha.jar
+          asset_path: ./core/target/flow-dsl-core-1.0.0-alpha.jar
+          asset_name: flow-dsl-core-1.0.0-alpha.jar
           asset_content_type: application/java-archive 
