@@ -24,6 +24,9 @@
                         <a class="nav-link" href="#benefits">Benefits</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link" href="#features">Features</a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="#examples">Examples</a>
                     </li>
                     <li class="nav-item">
@@ -38,6 +41,7 @@
         <div class="container">
             <h1>Flow DSL: Declarative Business Logic</h1>
             <p class="lead">Focus on What Your Code Does, Not How It Does It</p>
+            <p>Built for Java 21 with Virtual Thread Support</p>
         </div>
     </header>
 
@@ -59,6 +63,7 @@
                 <li>Improved maintainability</li>
                 <li>Enhanced testability</li>
                 <li>Easier parallel processing</li>
+                <li>Thread-safe state management</li>
             </ul>
         </section>
 
@@ -136,30 +141,51 @@ Flow.of(() -> order)
             </div>
         </section>
 
-        <section id="key-features" class="mb-5">
+        <section id="features" class="mb-5">
             <h2>Key Features</h2>
             <div class="row">
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Declarative Syntax</h5>
-                            <p class="card-text">Express business logic in a clear, readable manner that closely matches your domain requirements.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Built-in Resilience</h5>
-                            <p class="card-text">Automatic retry, circuit breaking, timeout handling, and compensation actions.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card">
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
                         <div class="card-body">
                             <h5 class="card-title">Parallel Processing</h5>
-                            <p class="card-text">Effortless parallel execution with controlled concurrency and proper resource management.</p>
+                            <p class="card-text">
+                                <ul>
+                                    <li>Virtual thread support for optimal performance</li>
+                                    <li>Controlled parallelism with configurable thread pools</li>
+                                    <li>Thread-safe context propagation</li>
+                                    <li>Automatic resource cleanup</li>
+                                </ul>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Resilience Patterns</h5>
+                            <p class="card-text">
+                                <ul>
+                                    <li>Circuit breaker pattern</li>
+                                    <li>Retry with backoff support</li>
+                                    <li>Timeout handling</li>
+                                    <li>Compensation actions</li>
+                                </ul>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">Error Handling</h5>
+                            <p class="card-text">
+                                <ul>
+                                    <li>Checked exception support</li>
+                                    <li>Parallel error propagation</li>
+                                    <li>Fallback mechanisms</li>
+                                    <li>Comprehensive error context</li>
+                                </ul>
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -332,6 +358,81 @@ CompletableFuture<OrderResult> result = Flow.of(() -> order)
     .thenApply(results -> OrderResult.combine(results))
     .executeAsync();
             </code></pre>
+
+            <h3>Parallel Processing with Context</h3>
+            <pre><code class="language-java">
+// Process items in parallel with shared context
+List<String> items = List.of("item1", "item2", "item3");
+List<String> results = Flow.just(items)
+    .parallelMap(Flow.CheckedFunction.wrap((String item) -> {
+        // Access shared context safely in parallel operations
+        Integer multiplier = Flow.currentContext()
+            .get("multiplier", Integer.class)
+            .orElse(1);
+        return item.toUpperCase() + "-" + multiplier;
+    }))
+    .withParallelism(3)
+    .withTimeout(Duration.ofSeconds(1))
+    .withContextData("multiplier", 42)
+    .execute();
+            </code></pre>
+
+            <h3>Controlled Parallel Execution</h3>
+            <pre><code class="language-java">
+// Process large datasets with controlled parallelism
+List<Integer> numbers = IntStream.range(0, 100).boxed().toList();
+List<Integer> doubled = Flow.parallel(5, numbers.stream()
+    .map(n -> (Supplier<Integer>) () -> n * 2)
+    .toArray(Supplier[]::new))
+    .execute();
+            </code></pre>
+
+            <h3>Error Handling in Parallel Operations</h3>
+            <pre><code class="language-java">
+Flow.parallel(suppliers)
+    .withRetry(3)
+    .withBackoff(Duration.ofMillis(100))
+    .withFallback(() -> fallbackValue)
+    .withCompensation(result -> cleanup(result))
+    .execute();
+            </code></pre>
+
+            <h3>Spring Boot Integration with Context</h3>
+            <pre><code class="language-java">
+@Service
+@Slf4j
+public class OrderService {
+    public OrderResult processOrdersInParallel(List<Order> orders) {
+        return Flow.just(orders)
+            .withContextData("batchId", UUID.randomUUID().toString())
+            .withContextData("timestamp", Instant.now())
+            .parallelMap(order -> {
+                // Access shared context in parallel threads
+                String batchId = Flow.currentContext()
+                    .get("batchId", String.class)
+                    .orElseThrow();
+                    
+                return processOrder(order, batchId);
+            })
+            .withParallelism(5)
+            .withTimeout(Duration.ofMinutes(1))
+            .withCompensation(this::rollbackOrders)
+            .execute();
+    }
+}
+            </code></pre>
+        </section>
+
+        <section id="performance" class="mb-5">
+            <h2>Performance and Resource Management</h2>
+            <p>Flow DSL leverages Java 21's virtual threads for optimal performance in parallel operations:</p>
+            <ul>
+                <li>Efficient thread utilization with virtual threads</li>
+                <li>Automatic thread pool management</li>
+                <li>Controlled resource cleanup</li>
+                <li>Thread-safe context propagation</li>
+                <li>Optimized memory usage</li>
+            </ul>
         </section>
     </main>
 

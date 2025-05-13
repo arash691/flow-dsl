@@ -1,21 +1,44 @@
 # Flow DSL
 
-A lightweight, fluent Domain-Specific Language (DSL) for building type-safe, composable business flows in Java.
+A fluent Java DSL for building robust, resilient, and parallel business workflows.
 
 ## Features
 
-- Fluent API for building flows
-- Conditional branching with `thenIf` and `otherwise`
-- Parallel execution support
-- Retry and circuit breaker patterns
+### Core Features
+- Fluent API for building complex workflows
+- Type-safe operations with generic support
+- Comprehensive error handling
+- Event emission and metrics collection
+- Context propagation across operations
+- Thread-safe state management
+
+### Parallel & Async Operations
+- Efficient parallel execution using virtual threads
+- Controlled parallelism with configurable thread pools
+- Parallel map operations for list processing
+- Async execution with CompletableFuture support
+- Thread-safe context propagation in parallel operations
+- Automatic resource cleanup and thread management
+
+### Resilience Patterns
+- Circuit breaker pattern
+- Retry mechanism with backoff support
 - Timeout handling
-- Context propagation
+- Fallback operations
+- Compensation actions
+- Graceful degradation
 - Error handling and compensation
 - Event emission and monitoring
 - Flow composition
-- Asynchronous support with CompletableFuture
 - Metrics collection
 - Debugging support
+
+### Exception Handling
+- Functional interfaces for checked exceptions
+- Automatic exception conversion utilities
+- Consistent error propagation
+- Comprehensive error context
+- Parallel execution error handling
 
 ## Getting Started
 
@@ -34,150 +57,117 @@ Add the dependency to your project:
 ### Basic Flow
 
 ```java
-Flow<String> flow = Flow.of(() -> "Hello")
-    .map(str -> str + " World")
-    .execute();  // Returns "Hello World"
-```
-
-### Error Handling
-
-```java
-Flow<String> flow = Flow.of(() -> "data")
-    .onError(error -> log.error("Flow failed", error))
-    .onComplete(result -> log.info("Flow completed with: {}", result))
-    .withRetry(3)
-    .withBackoff(Duration.ofSeconds(1))
+// Simple sequential flow
+String result = Flow.of(() -> "input")
+    .map(String::toUpperCase)
     .execute();
-```
 
-### Conditional Logic
-
-```java
-Flow<Integer> flow = Flow.of(() -> 42)
-    .thenIf(
-        num -> num > 40,
-        num -> "Large number: " + num
-    )
-    .otherwise(
-        num -> "Small number: " + num
-    )
+// Parallel processing with context
+List<String> items = List.of("item1", "item2", "item3");
+List<String> results = Flow.just(items)
+    .parallelMap(Flow.CheckedFunction.wrap((String item) -> {
+        // Access shared context safely in parallel operations
+        Integer multiplier = Flow.currentContext()
+            .get("multiplier", Integer.class)
+            .orElse(1);
+        return item.toUpperCase() + "-" + multiplier;
+    }))
+    .withParallelism(3)
+    .withTimeout(Duration.ofSeconds(1))
+    .withContextData("multiplier", 42)
     .execute();
-```
 
-### Parallel Execution
+// Controlled parallel execution
+List<Integer> numbers = IntStream.range(0, 100).boxed().toList();
+List<Integer> doubled = Flow.parallel(5, numbers.stream()
+    .map(n -> (Supplier<Integer>) () -> n * 2)
+    .toArray(Supplier[]::new))
+    .execute();
 
-```java
-Flow<List<String>> flow = Flow.parallel(
-    () -> "Task 1",
-    () -> "Task 2",
-    () -> "Task 3"
-).withParallelism(3)
- .execute();
-```
-
-### Context and Metadata
-
-```java
-Flow<String> flow = Flow.of(() -> "data")
-    .withContextData("key", "value")
-    .withContextMetadata("startTime", Instant.now())
-    .map(data -> {
-        String contextValue = getContext().get("key", String.class)
-            .orElse("default");
-        return data + contextValue;
+// Async execution with error handling
+CompletableFuture<String> future = Flow.ofChecked(() -> {
+        Thread.sleep(1000);
+        return "async result";
     })
-    .execute();
-```
-
-### Timeout Handling
-
-```java
-Flow<String> flow = Flow.of(() -> {
-    Thread.sleep(2000);
-    return "Delayed result";
-})
-.withTimeout(Duration.ofSeconds(1))
-.onError(e -> {
-    if (e instanceof FlowTimeoutException) {
-        log.error("Flow timed out");
-    }
-})
-.execute();
-```
-
-### Circuit Breaker
-
-```java
-Flow<String> flow = Flow.of(() -> callExternalService())
+    .withTimeout(Duration.ofSeconds(2))
     .withRetry(3)
-    .withBackoff(Duration.ofSeconds(1))
-    .onError(e -> circuitBreaker.recordFailure())
-    .onComplete(r -> circuitBreaker.recordSuccess())
-    .execute();
-```
-
-### Event Handling
-
-```java
-Flow<String> flow = Flow.of(() -> "data")
-    .onEvent(event -> {
-        switch (event.getType()) {
-            case FLOW_STARTED -> log.info("Flow started");
-            case FLOW_COMPLETED -> log.info("Flow completed");
-            case FLOW_ERROR -> log.error("Flow error: {}", event.getPayload());
-        }
-    })
-    .execute();
-```
-
-### Async Execution
-
-```java
-CompletableFuture<String> future = Flow.of(() -> "async data")
-    .map(data -> processDataAsync(data))
+    .withFallback(() -> "fallback")
     .executeAsync();
-
-future.thenAccept(result -> log.info("Got result: {}", result));
 ```
 
-### Flow Composition
+## Advanced Features
+
+### Context Propagation
+The Flow DSL provides thread-safe context propagation across all operations, including parallel executions:
 
 ```java
-Flow<String> flow1 = Flow.of(() -> "Hello");
-Flow<String> flow2 = Flow.of(() -> "World");
-
-Flow<String> combined = flow1.flatMap(hello ->
-    flow2.map(world -> hello + " " + world)
-);
-
-String result = combined.execute(); // "Hello World"
-```
-
-### Metrics Collection
-
-```java
-Flow<String> flow = Flow.of(() -> "data")
-    .map(data -> {
-        metrics.recordTiming("processing", Duration.ofMillis(100));
-        metrics.incrementCounter("processed");
-        return processData(data);
+Flow.of(() -> "input")
+    .withContextData("key", "value")
+    .parallelMap(item -> {
+        // Access context safely in parallel threads
+        String contextValue = Flow.currentContext()
+            .get("key", String.class)
+            .orElseThrow();
+        return item + contextValue;
     })
     .execute();
 ```
 
-## Best Practices
+### Parallel Execution Control
+Fine-grained control over parallel execution:
 
-1. Always handle errors appropriately using `onError`
-2. Use timeouts for external service calls
-3. Implement compensation actions for rollback scenarios
-4. Monitor flow execution with events and metrics
-5. Use context for passing metadata between flow steps
-6. Configure appropriate retry and backoff for resilience
-7. Leverage parallel execution for independent operations
+```java
+// Set maximum parallelism
+Flow.parallel(maxThreads, suppliers)
+    .withTimeout(Duration.ofSeconds(1))
+    .execute();
 
-## Contributing
+// Parallel map with controlled concurrency
+Flow.just(items)
+    .parallelMap(mapper)
+    .withParallelism(5)
+    .execute();
+```
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Error Handling in Parallel Operations
+Comprehensive error handling for parallel executions:
+
+```java
+Flow.parallel(suppliers)
+    .withRetry(3)
+    .withBackoff(Duration.ofMillis(100))
+    .withFallback(() -> fallbackValue)
+    .withCompensation(result -> cleanup(result))
+    .execute();
+```
+
+## Examples
+
+The `examples` module contains comprehensive examples demonstrating:
+- Basic Flow DSL usage
+- Parallel and async operations
+- Error handling and resilience patterns
+- Business use cases
+- Complex workflows
+- Context propagation patterns
+- Thread management strategies
+
+## Documentation
+
+Detailed documentation is available in the JavaDoc. Key topics include:
+- Building workflows with the Flow DSL
+- Parallel execution patterns and best practices
+- Context propagation in multi-threaded scenarios
+- Error handling strategies
+- Resilience patterns
+- Performance optimization
+- Thread management and resource cleanup
+
+## Requirements
+
+- Java 21 or higher (for virtual threads support)
+- SLF4J for logging
+- JUnit 5 for testing
 
 ## License
 
