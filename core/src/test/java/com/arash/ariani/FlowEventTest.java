@@ -1,13 +1,14 @@
 package com.arash.ariani;
 
 import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.time.Duration;
 import java.util.stream.Collectors;
-import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,17 +16,17 @@ class FlowEventTest extends BaseFlowTest {
 
     private List<FlowEvent.EventType> getEventTypes(List<FlowEvent> events) {
         return events.stream()
-            .map(FlowEvent::getType)
-            .collect(Collectors.toList());
+                .map(FlowEvent::getType)
+                .collect(Collectors.toList());
     }
 
     @Test
     void testBasicEventEmission() {
         List<FlowEvent> events = new ArrayList<>();
-        
+
         Flow.of(() -> "test")
-            .onEvent(events::add)
-            .execute();
+                .onEvent(events::add)
+                .execute();
 
         var eventTypes = getEventTypes(events);
         assertTrue(eventTypes.contains(FlowEvent.EventType.FLOW_STARTED));
@@ -35,11 +36,13 @@ class FlowEventTest extends BaseFlowTest {
     @Test
     void testEventTypesFiltering() {
         List<FlowEvent> errorEvents = new ArrayList<>();
-        
+
         assertThrows(RuntimeException.class, () ->
-            Flow.of(() -> { throw new RuntimeException("Test error"); })
-                .onEventTypes(errorEvents::add, FlowEvent.EventType.FLOW_ERROR)
-                .execute()
+                Flow.of(() -> {
+                            throw new RuntimeException("Test error");
+                        })
+                        .onEventTypes(errorEvents::add, FlowEvent.EventType.FLOW_ERROR)
+                        .execute()
         );
 
         assertEquals(1, errorEvents.size());
@@ -50,27 +53,27 @@ class FlowEventTest extends BaseFlowTest {
     @Test
     void testRetryEvents() {
         List<FlowEvent> retryEvents = new ArrayList<>();
-        
+
         Flow.of(failNTimes(2, "success"))
-            .withRetry(3)
-            .onEventTypes(retryEvents::add, FlowEvent.EventType.RETRY_ATTEMPT)
-            .execute();
+                .withRetry(3)
+                .onEventTypes(retryEvents::add, FlowEvent.EventType.RETRY_ATTEMPT)
+                .execute();
 
         assertEquals(2, retryEvents.size()); // 2 retries after initial failure
-        retryEvents.forEach(event -> 
-            assertEquals(FlowEvent.EventType.RETRY_ATTEMPT, event.getType())
+        retryEvents.forEach(event ->
+                assertEquals(FlowEvent.EventType.RETRY_ATTEMPT, event.getType())
         );
     }
 
     @Test
     void testTimeoutEvents() {
         List<FlowEvent> timeoutEvents = new ArrayList<>();
-        
+
         assertThrows(FlowTimeoutException.class, () ->
-            Flow.of(delayedSupplier(200, "test"))
-                .withTimeout(Duration.ofMillis(100))
-                .onEventTypes(timeoutEvents::add, FlowEvent.EventType.TIMEOUT_OCCURRED)
-                .execute()
+                Flow.of(delayedSupplier(200, "test"))
+                        .withTimeout(Duration.ofMillis(100))
+                        .onEventTypes(timeoutEvents::add, FlowEvent.EventType.TIMEOUT_OCCURRED)
+                        .execute()
         );
 
         assertEquals(1, timeoutEvents.size());
@@ -80,10 +83,10 @@ class FlowEventTest extends BaseFlowTest {
     @Test
     void testAsyncEventEmission() throws Exception {
         List<FlowEvent> events = new ArrayList<>();
-        
+
         CompletableFuture<String> future = Flow.of(() -> "async test")
-            .onEvent(events::add)
-            .executeAsync();
+                .onEvent(events::add)
+                .executeAsync();
 
         future.get(1, TimeUnit.SECONDS);
 
@@ -96,15 +99,15 @@ class FlowEventTest extends BaseFlowTest {
     void testEventPayloads() {
         List<FlowEvent> events = new ArrayList<>();
         String testData = "test data";
-        
+
         Flow.of(() -> testData)
-            .onEvent(events::add)
-            .execute();
+                .onEvent(events::add)
+                .execute();
 
         FlowEvent completedEvent = events.stream()
-            .filter(e -> e.getType() == FlowEvent.EventType.FLOW_COMPLETED)
-            .findFirst()
-            .orElseThrow();
+                .filter(e -> e.getType() == FlowEvent.EventType.FLOW_COMPLETED)
+                .findFirst()
+                .orElseThrow();
 
         assertEquals(testData, completedEvent.getPayload());
         assertNotNull(completedEvent.getTimestamp());
@@ -115,11 +118,11 @@ class FlowEventTest extends BaseFlowTest {
     void testMultipleSubscribers() {
         List<FlowEvent> subscriber1Events = new ArrayList<>();
         List<FlowEvent> subscriber2Events = new ArrayList<>();
-        
+
         Flow.of(() -> "test")
-            .onEvent(subscriber1Events::add)
-            .onEvent(subscriber2Events::add)
-            .execute();
+                .onEvent(subscriber1Events::add)
+                .onEvent(subscriber2Events::add)
+                .execute();
 
         assertEquals(subscriber1Events.size(), subscriber2Events.size());
         for (int i = 0; i < subscriber1Events.size(); i++) {
@@ -130,23 +133,23 @@ class FlowEventTest extends BaseFlowTest {
     @Test
     void testStepEvents() {
         List<FlowEvent> events = new ArrayList<>();
-        
+
         Flow.of(() -> "test")
-            .map(String::toUpperCase)
-            .filter(s -> !s.isEmpty())
-            .onEvent(events::add)
-            .execute();
+                .map(String::toUpperCase)
+                .filter(s -> !s.isEmpty())
+                .onEvent(events::add)
+                .execute();
 
         var eventTypes = getEventTypes(events);
         assertTrue(eventTypes.contains(FlowEvent.EventType.STEP_STARTED));
         assertTrue(eventTypes.contains(FlowEvent.EventType.STEP_COMPLETED));
-        
+
         // Verify step order
         List<String> stepOrder = events.stream()
-            .filter(e -> e.getType() == FlowEvent.EventType.STEP_STARTED)
-            .map(e -> (String) e.getPayload())
-            .toList();
-            
+                .filter(e -> e.getType() == FlowEvent.EventType.STEP_STARTED)
+                .map(e -> (String) e.getPayload())
+                .toList();
+
         assertEquals("map", stepOrder.get(0));
         assertEquals("filter", stepOrder.get(1));
     }
@@ -154,30 +157,30 @@ class FlowEventTest extends BaseFlowTest {
     @Test
     void testComplexFlowEvents() {
         List<FlowEvent> events = new ArrayList<>();
-        
+
         Flow.of(() -> 42)
-            .map(n -> n * 2)
-            .filter(n -> n >= 50)
-            .thenIf(
-                n -> n > 80,
-                n -> "High: " + n
-            )
-            .otherwise(n -> "Low: " + n)
-            .onEvent(events::add)
-            .execute();
+                .map(n -> n * 2)
+                .filter(n -> n >= 50)
+                .thenIf(
+                        n -> n > 80,
+                        n -> "High: " + n
+                )
+                .otherwise(n -> "Low: " + n)
+                .onEvent(events::add)
+                .execute();
 
         var eventTypes = getEventTypes(events);
         assertTrue(eventTypes.contains(FlowEvent.EventType.FLOW_STARTED));
         assertTrue(eventTypes.contains(FlowEvent.EventType.STEP_STARTED));
         assertTrue(eventTypes.contains(FlowEvent.EventType.STEP_COMPLETED));
         assertTrue(eventTypes.contains(FlowEvent.EventType.FLOW_COMPLETED));
-        
+
         // Verify the sequence of steps
         List<String> stepOrder = events.stream()
-            .filter(e -> e.getType() == FlowEvent.EventType.STEP_STARTED)
-            .map(e -> (String) e.getPayload())
-            .collect(Collectors.toList());
-            
+                .filter(e -> e.getType() == FlowEvent.EventType.STEP_STARTED)
+                .map(e -> (String) e.getPayload())
+                .collect(Collectors.toList());
+
         assertEquals(Arrays.asList("map", "filter", "thenIf", "otherwise"), stepOrder);
     }
 } 

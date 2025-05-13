@@ -15,12 +15,6 @@ public class FlowCircuitBreaker {
     private final AtomicReference<Instant> lastFailure;
     private final AtomicReference<State> state;
 
-    public enum State {
-        CLOSED,     // Normal operation
-        OPEN,       // Circuit breaker tripped
-        HALF_OPEN   // Testing if service is back
-    }
-
     public FlowCircuitBreaker(int failureThreshold, Duration resetTimeout) {
         this.failureThreshold = failureThreshold;
         this.resetTimeout = resetTimeout;
@@ -62,8 +56,8 @@ public class FlowCircuitBreaker {
      */
     public void recordFailure() {
         lastFailure.set(Instant.now());
-        if (state.get() == State.HALF_OPEN || 
-            failureCount.incrementAndGet() >= failureThreshold) {
+        if (state.get() == State.HALF_OPEN ||
+                failureCount.incrementAndGet() >= failureThreshold) {
             state.set(State.OPEN);
         }
     }
@@ -93,5 +87,11 @@ public class FlowCircuitBreaker {
      */
     public Duration getTimeSinceLastFailure() {
         return Duration.between(lastFailure.get(), Instant.now());
+    }
+
+    public enum State {
+        CLOSED,     // Normal operation
+        OPEN,       // Circuit breaker tripped
+        HALF_OPEN   // Testing if service is back
     }
 } 

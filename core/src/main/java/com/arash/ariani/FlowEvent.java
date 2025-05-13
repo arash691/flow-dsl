@@ -11,18 +11,6 @@ public class FlowEvent {
     private final Instant timestamp;
     private final Object payload;
 
-    public enum EventType {
-        FLOW_STARTED,
-        FLOW_COMPLETED,
-        FLOW_ERROR,
-        STEP_STARTED,
-        STEP_COMPLETED,
-        STEP_ERROR,
-        RETRY_ATTEMPT,
-        TIMEOUT_OCCURRED,
-        CIRCUIT_BREAKER_STATE_CHANGED
-    }
-
     public FlowEvent(String flowId, EventType type, Object payload) {
         this.flowId = flowId;
         this.type = type;
@@ -44,5 +32,17 @@ public class FlowEvent {
 
     public Object getPayload() {
         return payload;
+    }
+
+    public enum EventType {
+        FLOW_STARTED,
+        FLOW_COMPLETED,
+        FLOW_ERROR,
+        STEP_STARTED,
+        STEP_COMPLETED,
+        STEP_ERROR,
+        RETRY_ATTEMPT,
+        TIMEOUT_OCCURRED,
+        CIRCUIT_BREAKER_STATE_CHANGED
     }
 } 

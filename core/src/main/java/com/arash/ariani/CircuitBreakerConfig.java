@@ -14,16 +14,16 @@ public class CircuitBreakerConfig {
         this.resetTimeout = builder.resetTimeout;
     }
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
     public int getFailureThreshold() {
         return failureThreshold;
     }
 
     public Duration getResetTimeout() {
         return resetTimeout;
-    }
-
-    public static Builder builder() {
-        return new Builder();
     }
 
     public static class Builder {

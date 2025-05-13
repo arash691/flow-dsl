@@ -18,7 +18,7 @@ public interface Flow<T> {
      * Creates a new Flow from a supplier
      *
      * @param supplier The supplier that initiates the flow
-     * @param <T>     The type of data
+     * @param <T>      The type of data
      * @return A new Flow instance
      */
     static <T> Flow<T> of(Supplier<T> supplier) {
@@ -51,8 +51,8 @@ public interface Flow<T> {
      * Creates a new Flow from a supplier that may throw a checked exception
      *
      * @param supplier The supplier that may throw a checked exception
-     * @param <T>     The type of data
-     * @param <E>     The type of the checked exception
+     * @param <T>      The type of data
+     * @param <E>      The type of the checked exception
      * @return A new Flow instance
      */
     static <T, E extends Exception> Flow<T> ofChecked(CheckedSupplier<T, E> supplier) {
@@ -63,6 +63,31 @@ public interface Flow<T> {
                 throw new FlowExecutionException("Checked exception in supplier", e);
             }
         });
+    }
+
+    /**
+     * Creates a parallel flow from multiple suppliers with controlled parallelism
+     *
+     * @param maxParallelThreads The maximum number of parallel threads to use
+     * @param suppliers          The suppliers to execute in parallel
+     * @param <T>                The type of data
+     * @return A new Flow instance with List<T> result
+     */
+    @SafeVarargs
+    static <T> Flow<List<T>> parallel(int maxParallelThreads, Supplier<T>... suppliers) {
+        return FlowImpl.parallel(maxParallelThreads, suppliers);
+    }
+
+    /**
+     * Creates a parallel flow from multiple suppliers
+     *
+     * @param suppliers The suppliers to execute in parallel
+     * @param <T>       The type of data
+     * @return A new Flow instance with List<T> result
+     */
+    @SafeVarargs
+    static <T> Flow<List<T>> parallel(Supplier<T>... suppliers) {
+        return FlowImpl.parallel(suppliers);
     }
 
     /**
@@ -99,66 +124,6 @@ public interface Flow<T> {
                 throw new FlowExecutionException("Checked exception in flatMap", e);
             }
         });
-    }
-
-    /**
-     * Functional interface for operations that may throw checked exceptions
-     *
-     * @param <T> The type of the result
-     * @param <E> The type of the checked exception
-     */
-    @FunctionalInterface
-    interface CheckedSupplier<T, E extends Exception> {
-        T get() throws E;
-
-        /**
-         * Wraps a checked supplier into a regular supplier
-         *
-         * @param supplier The checked supplier to wrap
-         * @param <T>     The type of the result
-         * @param <E>     The type of the checked exception
-         * @return A regular supplier that wraps the checked exception
-         */
-        static <T, E extends Exception> Supplier<T> wrap(CheckedSupplier<T, E> supplier) {
-            return () -> {
-                try {
-                    return supplier.get();
-                } catch (Exception e) {
-                    throw new FlowExecutionException("Checked exception in supplier", e);
-                }
-            };
-        }
-    }
-
-    /**
-     * Functional interface for transformations that may throw checked exceptions
-     *
-     * @param <T> The input type
-     * @param <R> The result type
-     * @param <E> The type of the checked exception
-     */
-    @FunctionalInterface
-    interface CheckedFunction<T, R, E extends Exception> {
-        R apply(T t) throws E;
-
-        /**
-         * Wraps a checked function into a regular function
-         *
-         * @param function The checked function to wrap
-         * @param <T>     The input type
-         * @param <R>     The result type
-         * @param <E>     The type of the checked exception
-         * @return A regular function that wraps the checked exception
-         */
-        static <T, R, E extends Exception> Function<T, R> wrap(CheckedFunction<T, R, E> function) {
-            return t -> {
-                try {
-                    return function.apply(t);
-                } catch (Exception e) {
-                    throw new FlowExecutionException("Checked exception in function", e);
-                }
-            };
-        }
     }
 
     /**
@@ -254,7 +219,7 @@ public interface Flow<T> {
      *
      * @param predicate The condition to evaluate
      * @param action    The action to execute if the condition is true
-     * @param <R>      The type of the transformed data
+     * @param <R>       The type of the transformed data
      * @return A new Flow instance
      */
     <R> Flow<R> thenIf(Predicate<? super T> predicate, Function<? super T, ? extends R> action);
@@ -267,31 +232,6 @@ public interface Flow<T> {
      * @return A new Flow instance
      */
     <R> Flow<R> otherwise(Function<? super T, ? extends R> action);
-
-    /**
-     * Creates a parallel flow from multiple suppliers with controlled parallelism
-     *
-     * @param maxParallelThreads The maximum number of parallel threads to use
-     * @param suppliers The suppliers to execute in parallel
-     * @param <T>      The type of data
-     * @return A new Flow instance with List<T> result
-     */
-    @SafeVarargs
-    static <T> Flow<List<T>> parallel(int maxParallelThreads, Supplier<T>... suppliers) {
-        return FlowImpl.parallel(maxParallelThreads, suppliers);
-    }
-
-    /**
-     * Creates a parallel flow from multiple suppliers
-     *
-     * @param suppliers The suppliers to execute in parallel
-     * @param <T>      The type of data
-     * @return A new Flow instance with List<T> result
-     */
-    @SafeVarargs
-    static <T> Flow<List<T>> parallel(Supplier<T>... suppliers) {
-        return FlowImpl.parallel(suppliers);
-    }
 
     /**
      * Transforms the data in parallel using the provided mapper
@@ -364,7 +304,7 @@ public interface Flow<T> {
      * Subscribes to specific flow event types
      *
      * @param listener The event listener
-     * @param types   The event types to subscribe to
+     * @param types    The event types to subscribe to
      * @return The same Flow instance
      */
     Flow<T> onEventTypes(Consumer<FlowEvent> listener, FlowEvent.EventType... types);
@@ -384,4 +324,64 @@ public interface Flow<T> {
      * @return The same Flow instance
      */
     Flow<T> withFallback(Supplier<? extends T> fallback);
+
+    /**
+     * Functional interface for operations that may throw checked exceptions
+     *
+     * @param <T> The type of the result
+     * @param <E> The type of the checked exception
+     */
+    @FunctionalInterface
+    interface CheckedSupplier<T, E extends Exception> {
+        /**
+         * Wraps a checked supplier into a regular supplier
+         *
+         * @param supplier The checked supplier to wrap
+         * @param <T>      The type of the result
+         * @param <E>      The type of the checked exception
+         * @return A regular supplier that wraps the checked exception
+         */
+        static <T, E extends Exception> Supplier<T> wrap(CheckedSupplier<T, E> supplier) {
+            return () -> {
+                try {
+                    return supplier.get();
+                } catch (Exception e) {
+                    throw new FlowExecutionException("Checked exception in supplier", e);
+                }
+            };
+        }
+
+        T get() throws E;
+    }
+
+    /**
+     * Functional interface for transformations that may throw checked exceptions
+     *
+     * @param <T> The input type
+     * @param <R> The result type
+     * @param <E> The type of the checked exception
+     */
+    @FunctionalInterface
+    interface CheckedFunction<T, R, E extends Exception> {
+        /**
+         * Wraps a checked function into a regular function
+         *
+         * @param function The checked function to wrap
+         * @param <T>      The input type
+         * @param <R>      The result type
+         * @param <E>      The type of the checked exception
+         * @return A regular function that wraps the checked exception
+         */
+        static <T, R, E extends Exception> Function<T, R> wrap(CheckedFunction<T, R, E> function) {
+            return t -> {
+                try {
+                    return function.apply(t);
+                } catch (Exception e) {
+                    throw new FlowExecutionException("Checked exception in function", e);
+                }
+            };
+        }
+
+        R apply(T t) throws E;
+    }
 } 

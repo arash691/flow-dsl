@@ -1,14 +1,12 @@
 package com.arash.ariani;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
-import java.util.List;
-import java.time.Duration;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ExceptionHandlingTest extends BaseFlowTest {
 
@@ -20,7 +18,7 @@ class ExceptionHandlingTest extends BaseFlowTest {
 
         // When
         String result = Flow.ofChecked(supplier)
-            .execute();
+                .execute();
 
         // Then
         assertEquals("success", result);
@@ -37,7 +35,7 @@ class ExceptionHandlingTest extends BaseFlowTest {
         // When/Then
         assertThrows(FlowExecutionException.class, () -> {
             Flow.ofChecked(supplier)
-                .execute();
+                    .execute();
         });
     }
 
@@ -49,8 +47,8 @@ class ExceptionHandlingTest extends BaseFlowTest {
 
         // When
         String result = Flow.just(5)
-            .mapChecked(function)
-            .execute();
+                .mapChecked(function)
+                .execute();
 
         // Then
         assertEquals("10", result);
@@ -70,8 +68,8 @@ class ExceptionHandlingTest extends BaseFlowTest {
         // When/Then
         assertThrows(FlowExecutionException.class, () -> {
             Flow.just("invalid")
-                .mapChecked(parser)
-                .execute();
+                    .mapChecked(parser)
+                    .execute();
         });
     }
 
@@ -86,8 +84,8 @@ class ExceptionHandlingTest extends BaseFlowTest {
         // When/Then
         assertThrows(FlowExecutionException.class, () -> {
             Flow.just(42)
-                .flatMap(value -> innerFlow)
-                .execute();
+                    .flatMap(value -> innerFlow)
+                    .execute();
         });
     }
 
@@ -101,8 +99,8 @@ class ExceptionHandlingTest extends BaseFlowTest {
 
         // When
         String result = Flow.ofChecked(failingSupplier)
-            .withFallback(() -> "fallback value")
-            .execute();
+                .withFallback(() -> "fallback value")
+                .execute();
 
         // Then
         assertEquals("fallback value", result);
@@ -118,16 +116,16 @@ class ExceptionHandlingTest extends BaseFlowTest {
 
         // When
         String result = Flow.ofChecked(failingSupplier)
-            .withFallback(() -> {
-                try {
-                    throw new IOException("IO error occurred");
-                } catch (IOException e) {
-                    return "IO error handled";
-                } catch (RuntimeException e) {
-                    return "Runtime error handled";
-                }
-            })
-            .execute();
+                .withFallback(() -> {
+                    try {
+                        throw new IOException("IO error occurred");
+                    } catch (IOException e) {
+                        return "IO error handled";
+                    } catch (RuntimeException e) {
+                        return "Runtime error handled";
+                    }
+                })
+                .execute();
 
         // Then
         assertEquals("IO error handled", result);

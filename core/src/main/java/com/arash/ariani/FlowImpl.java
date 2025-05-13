@@ -67,8 +67,8 @@ public class FlowImpl<T> implements Flow<T> {
     public static <T> Flow<List<T>> parallel(int maxParallelThreads, Supplier<T>... suppliers) {
         return new FlowImpl<>(() -> {
             ExecutorService boundedExecutor = Executors.newFixedThreadPool(
-                Math.min(suppliers.length, maxParallelThreads),
-                Thread.ofVirtual().factory()
+                    Math.min(suppliers.length, maxParallelThreads),
+                    Thread.ofVirtual().factory()
             );
             List<CompletableFuture<T>> futures = new ArrayList<>();
             FlowContext parentContext = currentContext.get();
@@ -89,8 +89,8 @@ public class FlowImpl<T> implements Flow<T> {
                     CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
                     allFutures.join();
                     return futures.stream()
-                        .map(CompletableFuture::join)
-                        .toList();
+                            .map(CompletableFuture::join)
+                            .toList();
                 } catch (Exception e) {
                     futures.forEach(f -> f.cancel(true));
                     if (e instanceof FlowExecutionException) {
@@ -117,6 +117,20 @@ public class FlowImpl<T> implements Flow<T> {
         return parallel(Runtime.getRuntime().availableProcessors(), suppliers);
     }
 
+    /**
+     * Gets the context of the currently executing flow.
+     *
+     * @return The current flow context
+     * @throws IllegalStateException if called outside of a flow execution
+     */
+    public static FlowContext getCurrentContext() {
+        FlowContext context = currentContext.get();
+        if (context == null) {
+            throw new IllegalStateException("No active flow context found. This method must be called from within a flow execution.");
+        }
+        return context;
+    }
+
     @Override
     public <R> Flow<R> map(Function<? super T, ? extends R> mapper) {
         FlowImpl<R> newFlow = new FlowImpl<>(() -> {
@@ -141,15 +155,15 @@ public class FlowImpl<T> implements Flow<T> {
             T result = executeWithRetry();
             if (result instanceof List<?> list) {
                 ExecutorService boundedExecutor = Executors.newFixedThreadPool(
-                    Math.min(list.size(), maxParallelThreads),
-                    Thread.ofVirtual().factory()
+                        Math.min(list.size(), maxParallelThreads),
+                        Thread.ofVirtual().factory()
                 );
                 List<CompletableFuture<R>> futures = new ArrayList<>();
                 try {
                     for (Object item : list) {
                         futures.add(CompletableFuture.supplyAsync(
-                            () -> mapper.apply((T) item),
-                            boundedExecutor));
+                                () -> mapper.apply((T) item),
+                                boundedExecutor));
                     }
                     if (timeout != null) {
                         try {
@@ -171,8 +185,8 @@ public class FlowImpl<T> implements Flow<T> {
                         allFutures.join();
                     }
                     return (R) futures.stream()
-                        .map(CompletableFuture::join)
-                        .toList();
+                            .map(CompletableFuture::join)
+                            .toList();
                 } finally {
                     boundedExecutor.shutdown();
                     try {
@@ -208,8 +222,8 @@ public class FlowImpl<T> implements Flow<T> {
                     List<CompletableFuture<R>> futures = new ArrayList<>();
                     for (Object item : list) {
                         futures.add(CompletableFuture.supplyAsync(
-                            () -> mapper.apply((T) item).execute(),
-                            executor));
+                                () -> mapper.apply((T) item).execute(),
+                                executor));
                     }
                     try {
                         CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
@@ -231,8 +245,8 @@ public class FlowImpl<T> implements Flow<T> {
                             allFutures.join();
                         }
                         return (R) futures.stream()
-                            .map(CompletableFuture::join)
-                            .toList();
+                                .map(CompletableFuture::join)
+                                .toList();
                     } catch (Exception e) {
                         if (e instanceof FlowExecutionException) {
                             throw (FlowExecutionException) e;
@@ -320,8 +334,8 @@ public class FlowImpl<T> implements Flow<T> {
     @Override
     public Flow<T> withCircuitBreaker(CircuitBreakerConfig config) {
         this.circuitBreaker = new FlowCircuitBreaker(
-            config.getFailureThreshold(),
-            config.getResetTimeout()
+                config.getFailureThreshold(),
+                config.getResetTimeout()
         );
         return this;
     }
@@ -339,7 +353,7 @@ public class FlowImpl<T> implements Flow<T> {
         try {
             currentContext.set(context);
             eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.FLOW_STARTED, null));
-            
+
             if (!circuitBreaker.allowExecution()) {
                 if (fallback != null) {
                     T fallbackResult = fallback.get();
@@ -350,7 +364,7 @@ public class FlowImpl<T> implements Flow<T> {
             }
 
             context.withMetadata("startTime", start)
-                   .withMetadata("flowId", metrics.getFlowId());
+                    .withMetadata("flowId", metrics.getFlowId());
 
             result = executeWithRetry();
             successHandler.accept(result);
@@ -358,19 +372,19 @@ public class FlowImpl<T> implements Flow<T> {
             metrics.recordTiming("execution", Duration.between(start, Instant.now()));
 
             context.withMetadata("endTime", Instant.now())
-                   .withMetadata("success", true);
+                    .withMetadata("success", true);
 
             eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.FLOW_COMPLETED, result));
             return result;
         } catch (Exception e) {
             context.withMetadata("error", e)
-                   .withMetadata("success", false);
+                    .withMetadata("success", false);
             errorHandler.accept(e);
             circuitBreaker.recordFailure();
             metrics.incrementCounter("errors");
-            
+
             eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.FLOW_ERROR, e));
-            
+
             // Try fallback if available
             if (fallback != null) {
                 try {
@@ -381,10 +395,10 @@ public class FlowImpl<T> implements Flow<T> {
                     log.error("Fallback failed", fallbackError);
                 }
             }
-            
+
             // Call compensation with the last known result
             compensation.compensate(result);
-            
+
             if (e instanceof FlowExecutionException flowExecutionException) {
                 throw flowExecutionException;
             }
@@ -400,16 +414,16 @@ public class FlowImpl<T> implements Flow<T> {
     @Override
     public CompletableFuture<T> executeAsync() {
         return CompletableFuture.supplyAsync(this::execute, executor)
-            .exceptionally(e -> {
-                Throwable cause = e.getCause();
-                if (cause instanceof FlowTimeoutException) {
-                    throw (FlowTimeoutException) cause;
-                }
-                if (cause instanceof FlowExecutionException) {
-                    throw (FlowExecutionException) cause;
-                }
-                throw new FlowExecutionException("Async flow execution failed", e);
-            });
+                .exceptionally(e -> {
+                    Throwable cause = e.getCause();
+                    if (cause instanceof FlowTimeoutException) {
+                        throw (FlowTimeoutException) cause;
+                    }
+                    if (cause instanceof FlowExecutionException) {
+                        throw (FlowExecutionException) cause;
+                    }
+                    throw new FlowExecutionException("Async flow execution failed", e);
+                });
     }
 
     @Override
@@ -507,7 +521,7 @@ public class FlowImpl<T> implements Flow<T> {
                 if (attempts <= maxRetries) {
                     // Call compensation for the failed attempt
                     compensation.compensate(lastResult);
-                    
+
                     if (backoffDuration != null) {
                         try {
                             Thread.sleep(backoffDuration.toMillis() * attempts);
@@ -569,19 +583,5 @@ public class FlowImpl<T> implements Flow<T> {
     public Flow<T> withContextMetadata(String key, Object value) {
         context.withMetadata(key, value);
         return this;
-    }
-
-    /**
-     * Gets the context of the currently executing flow.
-     *
-     * @return The current flow context
-     * @throws IllegalStateException if called outside of a flow execution
-     */
-    public static FlowContext getCurrentContext() {
-        FlowContext context = currentContext.get();
-        if (context == null) {
-            throw new IllegalStateException("No active flow context found. This method must be called from within a flow execution.");
-        }
-        return context;
     }
 } 

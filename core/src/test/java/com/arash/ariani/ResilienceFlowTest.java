@@ -1,8 +1,10 @@
 package com.arash.ariani;
 
 import org.junit.jupiter.api.Test;
+
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class ResilienceFlowTest extends BaseFlowTest {
@@ -10,8 +12,8 @@ class ResilienceFlowTest extends BaseFlowTest {
     @Test
     void testRetryWithSuccess() {
         String result = Flow.of(failNTimes(2, "Success"))
-            .withRetry(3)
-            .execute();
+                .withRetry(3)
+                .execute();
 
         assertEquals("Success", result);
         assertEquals(3, counter.get());
@@ -20,9 +22,9 @@ class ResilienceFlowTest extends BaseFlowTest {
     @Test
     void testRetryWithFailure() {
         assertThrows(FlowExecutionException.class, () ->
-            Flow.of(failNTimes(4, "Success"))
-                .withRetry(3)
-                .execute()
+                Flow.of(failNTimes(4, "Success"))
+                        .withRetry(3)
+                        .execute()
         );
         assertEquals(4, counter.get());
     }
@@ -30,11 +32,11 @@ class ResilienceFlowTest extends BaseFlowTest {
     @Test
     void testRetryWithBackoff() {
         long startTime = System.currentTimeMillis();
-        
+
         String result = Flow.of(failNTimes(2, "Success"))
-            .withRetry(3)
-            .withBackoff(Duration.ofMillis(100))
-            .execute();
+                .withRetry(3)
+                .withBackoff(Duration.ofMillis(100))
+                .execute();
 
         long duration = System.currentTimeMillis() - startTime;
         assertEquals("Success", result);
@@ -44,8 +46,8 @@ class ResilienceFlowTest extends BaseFlowTest {
     @Test
     void testTimeoutSuccess() {
         String result = Flow.of(delayedSupplier(50, "Quick"))
-            .withTimeout(Duration.ofMillis(100))
-            .execute();
+                .withTimeout(Duration.ofMillis(100))
+                .execute();
 
         assertEquals("Quick", result);
     }
@@ -53,9 +55,9 @@ class ResilienceFlowTest extends BaseFlowTest {
     @Test
     void testTimeoutFailure() {
         assertThrows(FlowTimeoutException.class, () ->
-            Flow.of(delayedSupplier(200, "Slow"))
-                .withTimeout(Duration.ofMillis(100))
-                .execute()
+                Flow.of(delayedSupplier(200, "Slow"))
+                        .withTimeout(Duration.ofMillis(100))
+                        .execute()
         );
     }
 
@@ -82,10 +84,12 @@ class ResilienceFlowTest extends BaseFlowTest {
         AtomicInteger successCount = new AtomicInteger(0);
 
         assertThrows(RuntimeException.class, () ->
-            Flow.of(() -> { throw new RuntimeException("Test error"); })
-                .onError(e -> errorCount.incrementAndGet())
-                .onComplete(r -> successCount.incrementAndGet())
-                .execute()
+                Flow.of(() -> {
+                            throw new RuntimeException("Test error");
+                        })
+                        .onError(e -> errorCount.incrementAndGet())
+                        .onComplete(r -> successCount.incrementAndGet())
+                        .execute()
         );
 
         assertEquals(1, errorCount.get());
@@ -95,13 +99,13 @@ class ResilienceFlowTest extends BaseFlowTest {
     @Test
     void testCompensationActions() {
         AtomicInteger compensationCalled = new AtomicInteger(0);
-        
+
         assertThrows(RuntimeException.class, () ->
-            Flow.of(() -> {
-                throw new RuntimeException("Failure requiring compensation");
-            })
-            .withCompensation(data -> compensationCalled.incrementAndGet())
-            .execute()
+                Flow.of(() -> {
+                            throw new RuntimeException("Failure requiring compensation");
+                        })
+                        .withCompensation(data -> compensationCalled.incrementAndGet())
+                        .execute()
         );
 
         assertEquals(1, compensationCalled.get());
@@ -113,17 +117,18 @@ class ResilienceFlowTest extends BaseFlowTest {
         AtomicInteger compensations = new AtomicInteger(0);
 
         String result = Flow.of(() -> {
-                if (attempts.incrementAndGet() <= 2) {
-                    throw new RuntimeException("Temporary failure");
-                }
-                return "Success";
-            })
-            .withRetry(3)
-            .withBackoff(Duration.ofMillis(50))
-            .withTimeout(Duration.ofSeconds(1))
-            .withCompensation(data -> compensations.incrementAndGet())
-            .onError(e -> {})
-            .execute();
+                    if (attempts.incrementAndGet() <= 2) {
+                        throw new RuntimeException("Temporary failure");
+                    }
+                    return "Success";
+                })
+                .withRetry(3)
+                .withBackoff(Duration.ofMillis(50))
+                .withTimeout(Duration.ofSeconds(1))
+                .withCompensation(data -> compensations.incrementAndGet())
+                .onError(e -> {
+                })
+                .execute();
 
         assertEquals("Success", result);
         assertEquals(3, attempts.get());
@@ -133,13 +138,13 @@ class ResilienceFlowTest extends BaseFlowTest {
     @Test
     void testCircuitBreakerWithConfig() {
         Flow<String> flow = Flow.<String>of(() -> {
-            throw new RuntimeException("Service failure");
-        })
-        .withCircuitBreaker(CircuitBreakerConfig.builder()
-            .failureThreshold(3)  // Lower threshold for testing
-            .resetTimeout(Duration.ofMillis(100))  // Shorter timeout for testing
-            .build())
-        .withFallback(() -> "fallback-value");
+                    throw new RuntimeException("Service failure");
+                })
+                .withCircuitBreaker(CircuitBreakerConfig.builder()
+                        .failureThreshold(3)  // Lower threshold for testing
+                        .resetTimeout(Duration.ofMillis(100))  // Shorter timeout for testing
+                        .build())
+                .withFallback(() -> "fallback-value");
 
         // First 3 calls should attempt execution and fail
         for (int i = 0; i < 3; i++) {

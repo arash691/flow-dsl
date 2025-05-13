@@ -1,18 +1,15 @@
 package com.arash.ariani;
 
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.function.Supplier;
-import java.time.Duration;
-import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class ParallelFlowTest extends BaseFlowTest {
 
@@ -28,27 +25,27 @@ class ParallelFlowTest extends BaseFlowTest {
         // When
         @SuppressWarnings("unchecked")
         Supplier<Integer>[] suppliers = numbers.stream()
-            .map(num -> (Supplier<Integer>) () -> {
-                int current = concurrentExecutions.incrementAndGet();
-                maxConcurrentExecutions.set(Math.max(maxConcurrentExecutions.get(), current));
-                try {
-                    Thread.sleep(10); // Simulate some work
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new FlowExecutionException("Interrupted during parallel execution", e);
-                }
-                concurrentExecutions.decrementAndGet();
-                return num * 2;
-            })
-            .toArray(Supplier[]::new);
+                .map(num -> (Supplier<Integer>) () -> {
+                    int current = concurrentExecutions.incrementAndGet();
+                    maxConcurrentExecutions.set(Math.max(maxConcurrentExecutions.get(), current));
+                    try {
+                        Thread.sleep(10); // Simulate some work
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new FlowExecutionException("Interrupted during parallel execution", e);
+                    }
+                    concurrentExecutions.decrementAndGet();
+                    return num * 2;
+                })
+                .toArray(Supplier[]::new);
 
         List<Integer> result = Flow.parallel(maxParallelism, suppliers)
-            .execute();
+                .execute();
 
         // Then
         assertEquals(numbers.size(), result.size());
-        assertTrue(maxConcurrentExecutions.get() <= maxParallelism, 
-            "Max concurrent executions exceeded configured parallelism");
+        assertTrue(maxConcurrentExecutions.get() <= maxParallelism,
+                "Max concurrent executions exceeded configured parallelism");
         for (int i = 0; i < numbers.size(); i++) {
             assertEquals(numbers.get(i) * 2, result.get(i));
         }
@@ -59,21 +56,21 @@ class ParallelFlowTest extends BaseFlowTest {
     void testParallelExecutionWithCheckedExceptions() {
         // Given
         List<String> inputs = List.of("valid", "invalid", "valid2");
-        
+
         // When/Then
         @SuppressWarnings("unchecked")
         Supplier<String>[] suppliers = inputs.stream()
-            .map(str -> (Supplier<String>) () -> {
-                try {
-                    if (str.equals("invalid")) {
-                        throw new Exception("Simulated checked exception");
+                .map(str -> (Supplier<String>) () -> {
+                    try {
+                        if (str.equals("invalid")) {
+                            throw new Exception("Simulated checked exception");
+                        }
+                        return str.toUpperCase();
+                    } catch (Exception e) {
+                        throw new FlowExecutionException("Error in parallel execution", e);
                     }
-                    return str.toUpperCase();
-                } catch (Exception e) {
-                    throw new FlowExecutionException("Error in parallel execution", e);
-                }
-            })
-            .toArray(Supplier[]::new);
+                })
+                .toArray(Supplier[]::new);
 
         assertThrows(FlowExecutionException.class, () -> {
             Flow.parallel(suppliers).execute();
@@ -91,16 +88,16 @@ class ParallelFlowTest extends BaseFlowTest {
         // When
         @SuppressWarnings("unchecked")
         Supplier<Integer>[] suppliers = numbers.stream()
-            .map(num -> (Supplier<Integer>) () -> {
-                Integer contextMultiplier = Flow.currentContext().<Integer>get(contextKey, Integer.class)
-                    .orElseThrow(() -> new FlowExecutionException("Context value not found"));
-                return num * contextMultiplier;
-            })
-            .toArray(Supplier[]::new);
+                .map(num -> (Supplier<Integer>) () -> {
+                    Integer contextMultiplier = Flow.currentContext().<Integer>get(contextKey, Integer.class)
+                            .orElseThrow(() -> new FlowExecutionException("Context value not found"));
+                    return num * contextMultiplier;
+                })
+                .toArray(Supplier[]::new);
 
         List<Integer> result = Flow.parallel(suppliers)
-            .withContextData(contextKey, multiplier)
-            .execute();
+                .withContextData(contextKey, multiplier)
+                .execute();
 
         // Then
         assertEquals(numbers.size(), result.size());
@@ -114,27 +111,27 @@ class ParallelFlowTest extends BaseFlowTest {
     void testParallelExecutionWithTimeout() {
         // Given
         List<Integer> numbers = IntStream.range(0, 10).boxed().toList();
-        
+
         // When/Then
         @SuppressWarnings("unchecked")
         Supplier<Integer>[] suppliers = numbers.stream()
-            .map(num -> (Supplier<Integer>) () -> {
-                if (num > 5) {
-                    try {
-                        Thread.sleep(200); // Simulate long operation
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new FlowExecutionException("Interrupted during parallel execution", e);
+                .map(num -> (Supplier<Integer>) () -> {
+                    if (num > 5) {
+                        try {
+                            Thread.sleep(200); // Simulate long operation
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new FlowExecutionException("Interrupted during parallel execution", e);
+                        }
                     }
-                }
-                return num * 2;
-            })
-            .toArray(Supplier[]::new);
+                    return num * 2;
+                })
+                .toArray(Supplier[]::new);
 
         assertThrows(FlowTimeoutException.class, () -> {
             Flow.parallel(suppliers)
-                .withTimeout(Duration.ofMillis(100))
-                .execute();
+                    .withTimeout(Duration.ofMillis(100))
+                    .execute();
         });
     }
 
@@ -148,21 +145,21 @@ class ParallelFlowTest extends BaseFlowTest {
         // When
         @SuppressWarnings("unchecked")
         Supplier<String>[] suppliers = resources.stream()
-            .map(resource -> (Supplier<String>) () -> {
-                try {
-                    return resource.toUpperCase();
-                } finally {
-                    cleanupCount.incrementAndGet();
-                }
-            })
-            .toArray(Supplier[]::new);
+                .map(resource -> (Supplier<String>) () -> {
+                    try {
+                        return resource.toUpperCase();
+                    } finally {
+                        cleanupCount.incrementAndGet();
+                    }
+                })
+                .toArray(Supplier[]::new);
 
         List<String> result = Flow.parallel(suppliers)
-            .execute();
+                .execute();
 
         // Then
         assertEquals(resources.size(), result.size());
-        assertEquals(resources.size(), cleanupCount.get(), 
-            "Cleanup should be called for each resource");
+        assertEquals(resources.size(), cleanupCount.get(),
+                "Cleanup should be called for each resource");
     }
 } 

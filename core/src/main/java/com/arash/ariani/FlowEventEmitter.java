@@ -18,7 +18,7 @@ public interface FlowEventEmitter {
      * Subscribes to specific event types
      *
      * @param listener The event listener
-     * @param types   The event types to subscribe to
+     * @param types    The event types to subscribe to
      * @return A subscription ID that can be used to unsubscribe
      */
     String subscribeToTypes(Consumer<FlowEvent> listener, FlowEvent.EventType... types);

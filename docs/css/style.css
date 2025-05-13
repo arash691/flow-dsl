@@ -18,7 +18,7 @@ code {
 }
 
 .navbar {
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .container {
@@ -33,7 +33,7 @@ header.bg-primary {
 
 .card {
     border: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s;
     margin-bottom: 1.5rem;
 }
@@ -62,7 +62,7 @@ footer {
     header.bg-primary {
         padding: 2rem 0;
     }
-    
+
     .container {
         padding: 0 1rem;
     }

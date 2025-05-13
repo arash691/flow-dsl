@@ -5,6 +5,7 @@ A fluent Java DSL for building robust, resilient, and parallel business workflow
 ## Features
 
 ### Core Features
+
 - Fluent API for building complex workflows
 - Type-safe operations with generic support
 - Comprehensive error handling
@@ -13,6 +14,7 @@ A fluent Java DSL for building robust, resilient, and parallel business workflow
 - Thread-safe state management
 
 ### Parallel & Async Operations
+
 - Efficient parallel execution using virtual threads
 - Controlled parallelism with configurable thread pools
 - Parallel map operations for list processing
@@ -21,6 +23,7 @@ A fluent Java DSL for building robust, resilient, and parallel business workflow
 - Automatic resource cleanup and thread management
 
 ### Resilience Patterns
+
 - Circuit breaker pattern
 - Retry mechanism with backoff support
 - Timeout handling
@@ -34,6 +37,7 @@ A fluent Java DSL for building robust, resilient, and parallel business workflow
 - Debugging support
 
 ### Exception Handling
+
 - Functional interfaces for checked exceptions
 - Automatic exception conversion utilities
 - Consistent error propagation
@@ -98,6 +102,7 @@ CompletableFuture<String> future = Flow.ofChecked(() -> {
 ## Advanced Features
 
 ### Context Propagation
+
 The Flow DSL provides thread-safe context propagation across all operations, including parallel executions:
 
 ```java
@@ -114,6 +119,7 @@ Flow.of(() -> "input")
 ```
 
 ### Parallel Execution Control
+
 Fine-grained control over parallel execution:
 
 ```java
@@ -130,6 +136,7 @@ Flow.just(items)
 ```
 
 ### Error Handling in Parallel Operations
+
 Comprehensive error handling for parallel executions:
 
 ```java
@@ -144,6 +151,7 @@ Flow.parallel(suppliers)
 ## Examples
 
 The `examples` module contains comprehensive examples demonstrating:
+
 - Basic Flow DSL usage
 - Parallel and async operations
 - Error handling and resilience patterns
@@ -155,6 +163,7 @@ The `examples` module contains comprehensive examples demonstrating:
 ## Documentation
 
 Detailed documentation is available in the JavaDoc. Key topics include:
+
 - Building workflows with the Flow DSL
 - Parallel execution patterns and best practices
 - Context propagation in multi-threaded scenarios

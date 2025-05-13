@@ -38,8 +38,8 @@ public class FlowContext {
      */
     public <T> Optional<T> get(String key, Class<T> type) {
         return Optional.ofNullable(data.get(key))
-            .filter(type::isInstance)
-            .map(type::cast);
+                .filter(type::isInstance)
+                .map(type::cast);
     }
 
     /**
@@ -64,8 +64,8 @@ public class FlowContext {
      */
     public <T> Optional<T> getMetadata(String key, Class<T> type) {
         return Optional.ofNullable(metadata.get(key))
-            .filter(type::isInstance)
-            .map(type::cast);
+                .filter(type::isInstance)
+                .map(type::cast);
     }
 
     /**
