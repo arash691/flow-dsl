@@ -1,53 +1,32 @@
 package com.arash.ariani;
 
-import org.junit.jupiter.api.BeforeEach;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
- * Base test class providing common utilities for Flow DSL tests.
+ * Base test class with common test utilities for Flow tests.
  */
-public class BaseFlowTest {
-    
-    protected AtomicInteger counter;
+public abstract class BaseFlowTest {
+    protected final AtomicInteger counter = new AtomicInteger(0);
 
-    @BeforeEach
-    void setUp() {
-        counter = new AtomicInteger(0);
-    }
-
-    /**
-     * Creates a supplier that fails N times before succeeding
-     *
-     * @param failCount Number of times to fail
-     * @param result    The successful result
-     * @return A supplier that implements the failure pattern
-     */
-    protected <T> Supplier<T> failNTimes(int failCount, T result) {
+    protected <T> Supplier<T> failNTimes(int n, T successValue) {
         return () -> {
             int attempts = counter.incrementAndGet();
-            if (attempts <= failCount) {
+            if (attempts <= n) {
                 throw new RuntimeException("Attempt " + attempts + " failed");
             }
-            return result;
+            return successValue;
         };
     }
 
-    /**
-     * Creates a supplier that delays for a specified time before returning
-     *
-     * @param delayMillis Delay duration in milliseconds
-     * @param result      The result to return
-     * @return A supplier that implements the delay
-     */
-    protected <T> Supplier<T> delayedSupplier(int delayMillis, T result) {
+    protected <T> Supplier<T> delayedSupplier(long delayMillis, T value) {
         return () -> {
             try {
                 Thread.sleep(delayMillis);
-                return result;
+                return value;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException("Delayed supplier interrupted", e);
+                throw new RuntimeException("Interrupted during delay", e);
             }
         };
     }

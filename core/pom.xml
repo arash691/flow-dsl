@@ -7,13 +7,12 @@
     <parent>
         <groupId>com.arash.ariani</groupId>
         <artifactId>flow-dsl-parent</artifactId>
-        <version>1.0-SNAPSHOT</version>
+        <version>0.1.0-alpha</version>
     </parent>
 
     <artifactId>flow-dsl-core</artifactId>
-    <packaging>jar</packaging>
     <name>Flow DSL Core</name>
-    <description>Core Flow DSL implementation</description>
+    <description>Core module for Flow DSL</description>
 
     <dependencies>
         <!-- Logging -->
@@ -21,6 +20,12 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.4.14</version>
+            <scope>test</scope>
         </dependency>
 
         <!-- Testing -->
@@ -37,4 +42,22 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <release>${java.version}</release>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.2</version>
+            </plugin>
+        </plugins>
+    </build>
 </project> 

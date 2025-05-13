@@ -129,4 +129,39 @@ class ResilienceFlowTest extends BaseFlowTest {
         assertEquals(3, attempts.get());
         assertEquals(2, compensations.get()); // Compensation for first two failures
     }
+
+    @Test
+    void testCircuitBreakerWithConfig() {
+        Flow<String> flow = Flow.<String>of(() -> {
+            throw new RuntimeException("Service failure");
+        })
+        .withCircuitBreaker(CircuitBreakerConfig.builder()
+            .failureThreshold(3)  // Lower threshold for testing
+            .resetTimeout(Duration.ofMillis(100))  // Shorter timeout for testing
+            .build())
+        .withFallback(() -> "fallback-value");
+
+        // First 3 calls should attempt execution and fail
+        for (int i = 0; i < 3; i++) {
+            String result = flow.execute();
+            assertEquals("fallback-value", result);
+        }
+
+        // Next call should immediately return fallback due to open circuit
+        long startTime = System.currentTimeMillis();
+        String result = flow.execute();
+        assertTrue(System.currentTimeMillis() - startTime < 50); // Should fail fast
+        assertEquals("fallback-value", result);
+
+        // Wait for reset timeout
+        try {
+            Thread.sleep(150);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        // Circuit should be half-open now, allowing one attempt
+        result = flow.execute();
+        assertEquals("fallback-value", result);
+    }
 } 

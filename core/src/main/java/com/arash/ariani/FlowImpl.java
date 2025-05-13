@@ -24,12 +24,14 @@ public class FlowImpl<T> implements Flow<T> {
     private static final Logger log = LoggerFactory.getLogger(FlowImpl.class);
     private static final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
     private static final FlowEventEmitter eventEmitter = new DefaultFlowEventEmitter();
+    private static final ThreadLocal<FlowContext> currentContext = new ThreadLocal<>();
 
     private final Supplier<T> supplier;
     private final FlowContext context;
     private final FlowCompensation<T> compensation;
     private final FlowMetrics metrics;
-    private final FlowCircuitBreaker circuitBreaker;
+    private FlowCircuitBreaker circuitBreaker;
+    private Supplier<? extends T> fallback;
     private Consumer<Throwable> errorHandler = e -> log.error("Flow error", e);
     private Consumer<? super T> successHandler = r -> log.debug("Flow completed with result: {}", r);
     private Duration timeout;
@@ -62,21 +64,57 @@ public class FlowImpl<T> implements Flow<T> {
     }
 
     @SafeVarargs
-    public static <T> Flow<List<T>> parallel(Supplier<T>... suppliers) {
+    public static <T> Flow<List<T>> parallel(int maxParallelThreads, Supplier<T>... suppliers) {
         return new FlowImpl<>(() -> {
+            ExecutorService boundedExecutor = Executors.newFixedThreadPool(
+                Math.min(suppliers.length, maxParallelThreads),
+                Thread.ofVirtual().factory()
+            );
             List<CompletableFuture<T>> futures = new ArrayList<>();
-            for (Supplier<T> supplier : suppliers) {
-                futures.add(CompletableFuture.supplyAsync(supplier, executor));
-            }
+            FlowContext parentContext = currentContext.get();
             try {
-                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-                return futures.stream()
-                    .map(CompletableFuture::join)
-                    .toList();
-            } catch (Exception e) {
-                throw new FlowExecutionException("Parallel execution failed", e);
+                for (Supplier<T> supplier : suppliers) {
+                    futures.add(CompletableFuture.supplyAsync(() -> {
+                        try {
+                            if (parentContext != null) {
+                                currentContext.set(parentContext);
+                            }
+                            return supplier.get();
+                        } finally {
+                            currentContext.remove();
+                        }
+                    }, boundedExecutor));
+                }
+                try {
+                    CompletableFuture<Void> allFutures = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+                    allFutures.join();
+                    return futures.stream()
+                        .map(CompletableFuture::join)
+                        .toList();
+                } catch (Exception e) {
+                    futures.forEach(f -> f.cancel(true));
+                    if (e instanceof FlowExecutionException) {
+                        throw (FlowExecutionException) e;
+                    }
+                    throw new FlowExecutionException("Parallel execution failed", e);
+                }
+            } finally {
+                boundedExecutor.shutdown();
+                try {
+                    if (!boundedExecutor.awaitTermination(1, TimeUnit.SECONDS)) {
+                        boundedExecutor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    boundedExecutor.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
             }
         });
+    }
+
+    @SafeVarargs
+    public static <T> Flow<List<T>> parallel(Supplier<T>... suppliers) {
+        return parallel(Runtime.getRuntime().availableProcessors(), suppliers);
     }
 
     @Override
@@ -280,13 +318,34 @@ public class FlowImpl<T> implements Flow<T> {
     }
 
     @Override
+    public Flow<T> withCircuitBreaker(CircuitBreakerConfig config) {
+        this.circuitBreaker = new FlowCircuitBreaker(
+            config.getFailureThreshold(),
+            config.getResetTimeout()
+        );
+        return this;
+    }
+
+    @Override
+    public Flow<T> withFallback(Supplier<? extends T> fallback) {
+        this.fallback = fallback;
+        return this;
+    }
+
+    @Override
     public T execute() {
         Instant start = Instant.now();
         T result = null;
         try {
+            currentContext.set(context);
             eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.FLOW_STARTED, null));
             
             if (!circuitBreaker.allowExecution()) {
+                if (fallback != null) {
+                    T fallbackResult = fallback.get();
+                    eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.FLOW_COMPLETED, "Using fallback"));
+                    return fallbackResult;
+                }
                 throw new FlowExecutionException("Circuit breaker is open");
             }
 
@@ -312,6 +371,17 @@ public class FlowImpl<T> implements Flow<T> {
             
             eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.FLOW_ERROR, e));
             
+            // Try fallback if available
+            if (fallback != null) {
+                try {
+                    T fallbackResult = fallback.get();
+                    eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.FLOW_COMPLETED, "Using fallback"));
+                    return fallbackResult;
+                } catch (Exception fallbackError) {
+                    log.error("Fallback failed", fallbackError);
+                }
+            }
+            
             // Call compensation with the last known result
             compensation.compensate(result);
             
@@ -322,6 +392,8 @@ public class FlowImpl<T> implements Flow<T> {
                 throw re;
             }
             throw new FlowExecutionException("Flow execution failed", e);
+        } finally {
+            currentContext.remove();
         }
     }
 
@@ -349,13 +421,8 @@ public class FlowImpl<T> implements Flow<T> {
     @Override
     @SuppressWarnings("unchecked")
     public <R> Flow<R> thenIf(Predicate<? super T> predicate, Function<? super T, ? extends R> action) {
-        this.predicate = predicate;
-        this.thenIfExecuted = true;
-
-        return new FlowImpl<R>(() -> {
+        FlowImpl<R> newFlow = new FlowImpl<>(() -> {
             T result = executeWithRetry();
-            this.lastResult = result;
-            this.resultType = result.getClass();
             eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.STEP_STARTED, "thenIf"));
             try {
                 if (predicate.test(result)) {
@@ -369,44 +436,29 @@ public class FlowImpl<T> implements Flow<T> {
                 eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.STEP_ERROR, e));
                 throw e;
             }
-        }, this);
+        });
+        newFlow.thenIfExecuted = true;
+        return newFlow;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public <R> Flow<R> otherwise(Function<? super T, ? extends R> action) {
-        FlowImpl<?> parent = this.parentFlow;
-        if (parent == null || !parent.thenIfExecuted || parent.predicate == null) {
-            throw new IllegalStateException("otherwise() must be called after thenIf()");
+        if (!thenIfExecuted) {
+            throw new IllegalStateException("otherwise() can only be called after thenIf()");
         }
-
-        return new FlowImpl<R>(() -> {
-            Object lastResult = parent.lastResult;
-            Class<?> expectedType = parent.resultType;
-
-            if (lastResult == null) {
-                lastResult = executeWithRetry();
-            } else if (!expectedType.isInstance(lastResult)) {
-                throw new FlowExecutionException("Type mismatch in flow chain: expected " + expectedType.getSimpleName());
-            }
-
-            T result = (T) lastResult;
-            Predicate<? super T> predicate = (Predicate<? super T>) parent.predicate;
-
+        return new FlowImpl<>(() -> {
+            T result = executeWithRetry();
             eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.STEP_STARTED, "otherwise"));
             try {
-                if (!predicate.test(result)) {
-                    R actionResult = action.apply(result);
-                    eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.STEP_COMPLETED, "otherwise"));
-                    return actionResult;
-                }
+                R actionResult = action.apply(result);
                 eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.STEP_COMPLETED, "otherwise"));
-                return null;
+                return actionResult;
             } catch (Exception e) {
                 eventEmitter.emit(new FlowEvent(metrics.getFlowId(), FlowEvent.EventType.STEP_ERROR, e));
                 throw e;
             }
-        }, parent);
+        });
     }
 
     private T executeWithRetry() {
@@ -517,5 +569,19 @@ public class FlowImpl<T> implements Flow<T> {
     public Flow<T> withContextMetadata(String key, Object value) {
         context.withMetadata(key, value);
         return this;
+    }
+
+    /**
+     * Gets the context of the currently executing flow.
+     *
+     * @return The current flow context
+     * @throws IllegalStateException if called outside of a flow execution
+     */
+    public static FlowContext getCurrentContext() {
+        FlowContext context = currentContext.get();
+        if (context == null) {
+            throw new IllegalStateException("No active flow context found. This method must be called from within a flow execution.");
+        }
+        return context;
     }
 } 

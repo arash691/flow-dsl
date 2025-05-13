@@ -157,7 +157,7 @@ class FlowEventTest extends BaseFlowTest {
         
         Flow.of(() -> 42)
             .map(n -> n * 2)
-            .filter(n -> n > 50)
+            .filter(n -> n >= 50)
             .thenIf(
                 n -> n > 80,
                 n -> "High: " + n
