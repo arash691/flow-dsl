@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0] - 2024-03-XX
+## [1.0.0-alpha] - 2024-03-XX
 
 ### Added
 - Enhanced parallel execution support:
