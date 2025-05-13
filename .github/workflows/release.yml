@@ -20,6 +20,27 @@ jobs:
           
       - name: Build with Maven
         run: mvn -B package --file pom.xml
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+
+      - name: Extract Changelog
+        id: extract_changelog
+        run: |
+          # Extract the section for current version from CHANGELOG.md
+          VERSION=${{ env.VERSION }}
+          # Remove 'v' prefix if present in version
+          VERSION=${VERSION#v}
+          # Extract changelog section
+          CHANGELOG_SECTION=$(awk -v ver="$VERSION" '
+            /^## \[.*\]/ { if (p) { exit }; if ($0 ~ ver) { p=1; print; next } }
+            p { print }
+          ' CHANGELOG.md)
+          # Escape newlines and set output
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "$CHANGELOG_SECTION" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
         
       - name: Create Release
         id: create_release
@@ -32,9 +53,12 @@ jobs:
           draft: false
           prerelease: true
           body: |
-            Flow DSL ${{ github.ref }} Alpha Release
+            Flow DSL ${{ github.ref }} Release
             
-            Please refer to [README.md](README.md) for documentation.
+            ## Changelog
+            ${{ env.CHANGELOG }}
+            
+            For full documentation, please refer to [README.md](README.md).
             
       - name: Upload Release Asset
         uses: actions/upload-release-asset@v1
