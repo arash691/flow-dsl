@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.1.0] - 2024-03-XX
+## [1.0.0-alpha] - 2024-03-XX
 
 ### Added
 
@@ -71,7 +71,7 @@
     - Performance optimization guidelines
     - Resource cleanup strategies
 
-## [1.0.0-alpha] - 2024-03-XX
+## [0.2.0-alpha] - 2024-03-XX
 
 ### Added
 
